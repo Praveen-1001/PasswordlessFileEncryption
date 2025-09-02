@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <!-- Remove this line: <ApplicationIcon>Resources\app_icon.ico</ApplicationIcon> -->
+	<ApplicationIcon>Resources\app_icon.ico</ApplicationIcon>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ZXing.Net" Version="0.16.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CryptoLib\CryptoLib.csproj" />
+    <ProjectReference Include="..\FingerprintLib\FingerprintLib.csproj" />
+    <ProjectReference Include="..\FuzzyExtractorLib\FuzzyExtractorLib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Remove this line: <Resource Include="Resources\app_icon.ico" /> -->
+    <Content Include="Resources\fingerprint_placeholder.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="libzkfpcsharp.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Resources\app_icon.ico" />
+    <Content Include="Resources\app_icon.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+</Project>
