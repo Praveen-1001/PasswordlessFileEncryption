@@ -1,6 +1,4 @@
-﻿//Bcrypt - MainWindow.xaml.cs (Modernized UI)
-
-using CryptoLib;
+﻿using CryptoLib;
 using FingerprintLib;
 using FuzzyExtractorLib;
 using Microsoft.Win32;
@@ -28,20 +26,15 @@ namespace EncDecApp
         private FuzzyExtractor.HelperData? _helperData;
         private bool _isEnrolled = false;
 
-        // Backup template storage for restoration if needed
         private byte[]? _enrollmentTemplateBackup;
-
-        // Store enrollment template and helper data for template-assisted method
         private byte[]? _enrollmentTemplate;
         private FuzzyExtractor.HelperData? _enrollmentHelperData;
 
-        // Hybrid method tracking
         private FingerprintScanner.KeyGenerationMethod _lastUsedMethod = FingerprintScanner.KeyGenerationMethod.FuzzyExtractor;
         private double _lastConfidenceScore = 0.0;
         private string _lastMethodReason = string.Empty;
         private FuzzyExtractor.QualityLevel _lastQualityLevel = FuzzyExtractor.QualityLevel.Unknown;
 
-        // Statistics for user feedback
         private int _verificationAttempts = 0;
         private int _successfulVerifications = 0;
 
@@ -49,7 +42,6 @@ namespace EncDecApp
         {
             InitializeComponent();
 
-            // Initialize components
             _fingerScanner = new FingerprintScanner();
             _fuzzyExtractor = new FuzzyExtractor();
             _fileEncryptor = new FileEncryptor();
@@ -90,7 +82,6 @@ namespace EncDecApp
                     _selectedFilePath = openFileDialog.FileName;
                     FilePathTextBox.Text = Path.GetFileName(_selectedFilePath);
 
-                    // Show file info
                     FileInfo fileInfo = new FileInfo(_selectedFilePath);
                     FileInfoText.Text = $"Size: {FileEncryptor.GetHumanReadableFileSize(fileInfo.Length)} • Modified: {fileInfo.LastWriteTime:MM/dd/yyyy}";
                     FileInfoPanel.Visibility = Visibility.Visible;
@@ -111,7 +102,6 @@ namespace EncDecApp
                 if (!ValidateOperation())
                     return;
 
-                // Ask for destination file path
                 SaveFileDialog saveDialog = new SaveFileDialog();
                 saveDialog.Title = "Save Encrypted File";
                 saveDialog.Filter = "Encrypted Files (*.enc)|*.enc|All Files (*.*)|*.*";
@@ -136,7 +126,6 @@ namespace EncDecApp
                 if (!ValidateOperation())
                     return;
 
-                // Ask for destination file path
                 SaveFileDialog saveDialog = new SaveFileDialog();
                 saveDialog.Title = "Save Decrypted File";
                 saveDialog.Filter = "All Files (*.*)|*.*";
@@ -510,7 +499,6 @@ namespace EncDecApp
             }
             catch
             {
-                // Silently handle image creation errors
             }
         }
 
@@ -544,7 +532,6 @@ namespace EncDecApp
             }
             catch
             {
-                // Silently handle display errors
             }
         }
 
@@ -557,14 +544,12 @@ namespace EncDecApp
                     using (FileStream fileStream = new FileStream(filePath, FileMode.Create))
                     using (BinaryWriter writer = new BinaryWriter(fileStream))
                     {
-                        // BMP file header
                         writer.Write((byte)'B');
                         writer.Write((byte)'M');
                         writer.Write(14 + 40 + 1024 + width * height);
                         writer.Write(0);
                         writer.Write(14 + 40 + 1024);
 
-                        // DIB header
                         writer.Write(40);
                         writer.Write(width);
                         writer.Write(height);
@@ -577,7 +562,6 @@ namespace EncDecApp
                         writer.Write(256);
                         writer.Write(0);
 
-                        // Color table
                         for (int i = 0; i < 256; i++)
                         {
                             writer.Write((byte)i);
@@ -586,7 +570,6 @@ namespace EncDecApp
                             writer.Write((byte)0);
                         }
 
-                        // Pixel data
                         for (int y = height - 1; y >= 0; y--)
                         {
                             for (int x = 0; x < width; x++)
@@ -598,7 +581,6 @@ namespace EncDecApp
                 }
                 catch
                 {
-                    // Silently handle file write errors
                 }
             });
         }
@@ -737,7 +719,7 @@ namespace EncDecApp
 
         #endregion
 
-        #region Security Methods (Unchanged - keeping existing logic)
+        #region Security Methods
 
         private SecurityAnalysisResult PerformSecurityAnalysis(byte[] verificationTemplate)
         {
@@ -863,13 +845,12 @@ namespace EncDecApp
             }
             catch
             {
-                // Silently handle disposal errors
             }
             base.OnClosed(e);
         }
     }
 
-    #region Security Analysis Classes (Unchanged)
+    #region Security Analysis Classes
 
     public class SecurityAnalysisResult
     {

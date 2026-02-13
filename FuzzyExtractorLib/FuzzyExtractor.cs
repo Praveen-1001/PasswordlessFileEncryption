@@ -1,6 +1,4 @@
-﻿// FuzzyExtractorLib - Enhanced FuzzyExtractor.cs (Modernized for Bcrypt)
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,32 +8,25 @@ using ZXing.Common.ReedSolomon;
 
 namespace FuzzyExtractorLib
 {
-    /// <summary>
-    /// Enhanced fuzzy extractor with ultra-stable feature extraction and adaptive thresholds
-    /// </summary>
+
     public class FuzzyExtractor
     {
-        // Reed-Solomon parameters - optimized for better error correction
-        private const int RS_DATA_SIZE = 32;         // 32 bytes for the key
-        private const int RS_PARITY_SIZE = 64;       // Increased parity for better error correction
-        private const int RS_TOTAL_SIZE = 96;        // 32 + 64 = 96 total
+        private const int RS_DATA_SIZE = 32;
+        private const int RS_PARITY_SIZE = 64;
+        private const int RS_TOTAL_SIZE = 96;
 
-        // Key parameters
-        private const int KEY_SIZE = 32; // 256-bit keys
+        private const int KEY_SIZE = 32;
 
-        // Enhanced quality thresholds for adaptive operation
-        private const double HIGH_QUALITY_THRESHOLD = 0.95;   // Use standard fuzzy extractor
-        private const double MEDIUM_QUALITY_THRESHOLD = 0.85; // Use relaxed parameters
-        private const double LOW_QUALITY_THRESHOLD = 0.70;    // Minimum acceptable
+        private const double HIGH_QUALITY_THRESHOLD = 0.95;
+        private const double MEDIUM_QUALITY_THRESHOLD = 0.85;
+        private const double LOW_QUALITY_THRESHOLD = 0.70;
 
-        // Feature extraction parameters - optimized for stability
-        private const int HEADER_SKIP_BYTES = 32;       // Skip more header bytes
-        private const int SMOOTHING_PASSES = 5;         // More smoothing passes
-        private const int QUANTIZATION_LEVELS = 16;     // Quantize to reduce noise
-        private const double STABLE_REGION_START = 0.2; // Use middle 60% of template
+        private const int HEADER_SKIP_BYTES = 32;
+        private const int SMOOTHING_PASSES = 5;
+        private const int QUANTIZATION_LEVELS = 16;
+        private const double STABLE_REGION_START = 0.2;
         private const double STABLE_REGION_END = 0.8;
 
-        // Diagnostic properties
         public string LastGeneratedKeyHex { get; private set; } = string.Empty;
         public double LastTemplateMatchScore { get; private set; } = 0.0;
         public int LastErrorsCorrected { get; private set; } = 0;
@@ -51,9 +42,6 @@ namespace FuzzyExtractorLib
             High
         }
 
-        /// <summary>
-        /// Enhanced helper data structure with quality-aware parameters
-        /// </summary>
         public class HelperData
         {
             public byte[] Sketch { get; set; }
@@ -65,7 +53,6 @@ namespace FuzzyExtractorLib
             public double FeatureConsistencyScore { get; set; }
             public Dictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();
 
-            // Enhanced template features for better matching
             public byte[] StableFeatures { get; set; }
             public byte[] QuantizedFeatures { get; set; }
             public byte[] CorrelationSignature { get; set; }
@@ -89,8 +76,7 @@ namespace FuzzyExtractorLib
                 using var ms = new MemoryStream();
                 using var writer = new BinaryWriter(ms);
 
-                // Write version header for future compatibility
-                writer.Write((byte)2); // Version 2 - Enhanced
+                writer.Write((byte)2);
 
                 writer.Write(Sketch.Length);
                 writer.Write(Sketch);
@@ -108,7 +94,6 @@ namespace FuzzyExtractorLib
                 writer.Write((int)QualityLevel);
                 writer.Write(FeatureConsistencyScore);
 
-                // Enhanced features
                 writer.Write(StableFeatures.Length);
                 writer.Write(StableFeatures);
 
@@ -118,7 +103,6 @@ namespace FuzzyExtractorLib
                 writer.Write(CorrelationSignature.Length);
                 writer.Write(CorrelationSignature);
 
-                // Write metadata
                 writer.Write(Metadata.Count);
                 foreach (var kvp in Metadata)
                 {
@@ -136,7 +120,6 @@ namespace FuzzyExtractorLib
 
                 var helper = new HelperData();
 
-                // Read version
                 byte version = reader.ReadByte();
                 if (version < 1 || version > 2)
                 {
@@ -157,7 +140,6 @@ namespace FuzzyExtractorLib
 
                 helper.TemplateLength = reader.ReadInt32();
 
-                // Version 2 enhancements
                 if (version >= 2)
                 {
                     helper.QualityLevel = (QualityLevel)reader.ReadInt32();
@@ -173,7 +155,6 @@ namespace FuzzyExtractorLib
                     helper.CorrelationSignature = reader.ReadBytes(correlationLength);
                 }
 
-                // Read metadata
                 int metadataCount = reader.ReadInt32();
                 for (int i = 0; i < metadataCount; i++)
                 {
@@ -186,50 +167,35 @@ namespace FuzzyExtractorLib
             }
         }
 
-        /// <summary>
-        /// Enhanced key generation with ultra-stable feature extraction
-        /// </summary>
         public (byte[] Key, HelperData Helper) GenerateKey(byte[] template)
         {
             if (template == null || template.Length == 0)
-            {
                 throw new ArgumentException("Invalid fingerprint template");
-            }
 
             DiagnosticLog.Clear();
 
             try
             {
-                // 1. Assess template quality and determine processing level
                 var qualityLevel = AssessTemplateQuality(template);
                 LastQualityLevel = qualityLevel;
 
-                // 2. Extract ultra-stable features using quality-aware parameters
                 var featureResult = ExtractUltraStableFeatures(template, qualityLevel);
                 LastFeatureConsistencyScore = featureResult.consistencyScore;
 
-                // 3. Generate random key
                 byte[] key = GenerateRandomKey();
 
-                // 4. Encode key with enhanced Reed-Solomon
                 byte[] encodedKey = EncodeWithEnhancedReedSolomon(key);
 
-                // 5. Pad features to match encoded key size
                 byte[] paddedFeatures = PadFeatures(featureResult.features, encodedKey.Length);
 
-                // 6. Create sketch = paddedFeatures XOR encodedKey
                 byte[] sketch = XORBytes(paddedFeatures, encodedKey);
 
-                // 7. Generate enhanced salt
                 byte[] salt = GenerateEnhancedSalt(template);
 
-                // 8. Create multi-metric template hash for improved matching
                 var templateAnalysis = CreateEnhancedTemplateAnalysis(template, featureResult);
 
-                // 9. Create verification hash
                 byte[] verification = CreateVerification(key, salt);
 
-                // Store key hex for debugging
                 LastGeneratedKeyHex = BitConverter.ToString(key).Replace("-", "");
 
                 var helper = new HelperData
@@ -258,68 +224,48 @@ namespace FuzzyExtractorLib
 
                 return (key, helper);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 throw;
             }
         }
 
-        /// <summary>
-        /// Enhanced key reproduction with adaptive thresholds and multi-metric matching
-        /// </summary>
         public byte[] ReproduceKey(byte[] template, HelperData helper)
         {
             if (template == null || template.Length == 0 || helper == null)
-            {
                 throw new ArgumentException("Invalid input parameters");
-            }
 
             DiagnosticLog.Clear();
 
             try
             {
-                // 1. Assess current template quality
                 var currentQuality = AssessTemplateQuality(template);
                 LastQualityLevel = currentQuality;
 
-                // 2. Multi-metric template matching with adaptive thresholds
                 var matchResult = PerformEnhancedTemplateMatching(template, helper);
                 LastTemplateMatchScore = matchResult.overallScore;
 
-                // 3. Determine acceptance threshold based on quality levels
                 double threshold = DetermineAdaptiveThreshold(helper.QualityLevel, currentQuality);
 
                 if (matchResult.overallScore < threshold)
-                {
                     return null;
-                }
 
-                // 4. Extract features using the same quality-aware parameters
                 var featureResult = ExtractUltraStableFeatures(template, helper.QualityLevel);
                 LastFeatureConsistencyScore = featureResult.consistencyScore;
 
-                // 5. Pad features to match sketch size
                 byte[] paddedFeatures = PadFeatures(featureResult.features, helper.Sketch.Length);
 
-                // 6. XOR with sketch to get noisy encoded key
                 byte[] noisyEncodedKey = XORBytes(paddedFeatures, helper.Sketch);
 
-                // 7. Decode with enhanced Reed-Solomon
                 var (decodedKey, errorsCorrected, success) = DecodeWithEnhancedReedSolomon(noisyEncodedKey);
                 LastErrorsCorrected = errorsCorrected;
 
                 if (!success)
-                {
                     return null;
-                }
 
-                // 8. Verify the key
                 if (!VerifyKey(decodedKey, helper.Verification, helper.Salt))
-                {
                     return null;
-                }
 
-                // Store for debugging
                 LastGeneratedKeyHex = BitConverter.ToString(decodedKey).Replace("-", "");
 
                 return decodedKey;
@@ -330,17 +276,12 @@ namespace FuzzyExtractorLib
             }
         }
 
-        /// <summary>
-        /// Ultra-stable feature extraction with quality-aware processing
-        /// </summary>
         private (byte[] features, byte[] quantizedFeatures, double consistencyScore) ExtractUltraStableFeatures(
             byte[] template, QualityLevel qualityLevel)
         {
-            // Adjust parameters based on quality level
             int headerSkip = qualityLevel == QualityLevel.High ? HEADER_SKIP_BYTES : HEADER_SKIP_BYTES / 2;
             int smoothingPasses = qualityLevel == QualityLevel.Low ? SMOOTHING_PASSES + 2 : SMOOTHING_PASSES;
 
-            // Focus on the most stable region of the template
             int stableStart = Math.Max(headerSkip, (int)(template.Length * STABLE_REGION_START));
             int stableEnd = (int)(template.Length * STABLE_REGION_END);
             int stableLength = stableEnd - stableStart;
@@ -352,12 +293,10 @@ namespace FuzzyExtractorLib
                 stableLength = stableEnd - stableStart;
             }
 
-            // Extract features from stable region
             byte[] rawFeatures = new byte[RS_DATA_SIZE];
 
             if (stableLength >= RS_DATA_SIZE)
             {
-                // Sample evenly from stable region
                 for (int i = 0; i < RS_DATA_SIZE; i++)
                 {
                     int index = stableStart + (i * stableLength / RS_DATA_SIZE);
@@ -366,7 +305,6 @@ namespace FuzzyExtractorLib
             }
             else
             {
-                // Use available bytes and pad deterministically
                 for (int i = 0; i < RS_DATA_SIZE; i++)
                 {
                     if (i < stableLength)
@@ -375,27 +313,20 @@ namespace FuzzyExtractorLib
                     }
                     else
                     {
-                        // Deterministic padding using template characteristics
                         rawFeatures[i] = (byte)((template[(stableStart + i) % template.Length] ^ (byte)i) & 0xFF);
                     }
                 }
             }
 
-            // Apply heavy smoothing to reduce noise sensitivity
             byte[] smoothedFeatures = ApplyEnhancedSmoothing(rawFeatures, smoothingPasses);
 
-            // Apply quantization to reduce sensitivity to small variations
             byte[] quantizedFeatures = ApplyQuantization(smoothedFeatures, QUANTIZATION_LEVELS);
 
-            // Calculate consistency score based on feature stability metrics
             double consistencyScore = CalculateFeatureConsistencyScore(smoothedFeatures, quantizedFeatures);
 
             return (smoothedFeatures, quantizedFeatures, consistencyScore);
         }
 
-        /// <summary>
-        /// Enhanced smoothing with multiple passes and edge preservation
-        /// </summary>
         private byte[] ApplyEnhancedSmoothing(byte[] features, int passes)
         {
             byte[] result = new byte[features.Length];
@@ -409,17 +340,14 @@ namespace FuzzyExtractorLib
                 {
                     if (i == 0)
                     {
-                        // Edge: average with next element
                         temp[i] = (byte)((result[i] * 2 + result[i + 1]) / 3);
                     }
                     else if (i == result.Length - 1)
                     {
-                        // Edge: average with previous element
                         temp[i] = (byte)((result[i - 1] + result[i] * 2) / 3);
                     }
                     else
                     {
-                        // Middle: weighted average with neighbors
                         temp[i] = (byte)((result[i - 1] + 4 * result[i] + result[i + 1]) / 6);
                     }
                 }
@@ -430,9 +358,6 @@ namespace FuzzyExtractorLib
             return result;
         }
 
-        /// <summary>
-        /// Quantization to reduce noise sensitivity
-        /// </summary>
         private byte[] ApplyQuantization(byte[] features, int levels)
         {
             byte[] quantized = new byte[features.Length];
@@ -441,28 +366,23 @@ namespace FuzzyExtractorLib
             for (int i = 0; i < features.Length; i++)
             {
                 int level = features[i] / stepSize;
-                level = Math.Min(level, levels - 1); // Clamp to valid range
-                quantized[i] = (byte)(level * stepSize + stepSize / 2); // Use middle of quantization bin
+                level = Math.Min(level, levels - 1);
+                quantized[i] = (byte)(level * stepSize + stepSize / 2);
             }
 
             return quantized;
         }
 
-        /// <summary>
-        /// Enhanced template quality assessment
-        /// </summary>
         private QualityLevel AssessTemplateQuality(byte[] template)
         {
             if (template == null || template.Length == 0)
                 return QualityLevel.Unknown;
 
-            // Calculate multiple quality metrics
             double entropyScore = CalculateEntropy(template);
             double varianceScore = CalculateVariance(template);
             double edgeScore = CalculateEdgeContent(template);
             double sizeScore = Math.Min(1.0, template.Length / 2048.0);
 
-            // Weighted quality score
             double overallScore = (entropyScore * 0.3 + varianceScore * 0.3 + edgeScore * 0.2 + sizeScore * 0.2);
 
             if (overallScore >= HIGH_QUALITY_THRESHOLD)
@@ -473,6 +393,18 @@ namespace FuzzyExtractorLib
                 return QualityLevel.Low;
             else
                 return QualityLevel.Unknown;
+        }
+
+        private double DetermineAdaptiveThreshold(QualityLevel enrollmentQuality, QualityLevel verificationQuality)
+        {
+            if (enrollmentQuality == QualityLevel.High && verificationQuality == QualityLevel.High)
+                return 0.65;
+            else if (enrollmentQuality == QualityLevel.High || verificationQuality == QualityLevel.High)
+                return 0.60;
+            else if (enrollmentQuality == QualityLevel.Medium && verificationQuality == QualityLevel.Medium)
+                return 0.55;
+            else
+                return 0.45;
         }
 
         private double CalculateEntropy(byte[] data)
@@ -491,14 +423,14 @@ namespace FuzzyExtractorLib
                 }
             }
 
-            return entropy / 8.0; // Normalize to 0-1
+            return entropy / 8.0;
         }
 
         private double CalculateVariance(byte[] data)
         {
             double mean = data.Average(b => (double)b);
             double variance = data.Average(b => Math.Pow(b - mean, 2));
-            return Math.Min(1.0, variance / 6400.0); // Normalize roughly to 0-1
+            return Math.Min(1.0, variance / 6400.0);
         }
 
         private double CalculateEdgeContent(byte[] data)
@@ -509,36 +441,27 @@ namespace FuzzyExtractorLib
                 if (Math.Abs(data[i] - data[i - 1]) > 30)
                     edges++;
             }
-            return Math.Min(1.0, edges / (data.Length * 0.1)); // Normalize
+            return Math.Min(1.0, edges / (data.Length * 0.1));
         }
 
-        /// <summary>
-        /// Enhanced template matching with multiple metrics and SECURITY validation
-        /// </summary>
         private (double overallScore, double featureSimilarity, double quantizedSimilarity, double correlationScore)
             PerformEnhancedTemplateMatching(byte[] currentTemplate, HelperData helper)
         {
             try
             {
-                // SECURITY CHECK: Validate templates exist
                 if (currentTemplate == null || helper.StableFeatures == null)
                 {
                     return (0.0, 0.0, 0.0, 0.0);
                 }
 
-                // Extract features from current template using stored quality level
                 var currentFeatures = ExtractUltraStableFeatures(currentTemplate, helper.QualityLevel);
 
-                // 1. Direct feature similarity
                 double featureSimilarity = CalculateFeatureSimilarity(currentFeatures.features, helper.StableFeatures);
 
-                // 2. Quantized feature similarity (more noise-tolerant)
                 double quantizedSimilarity = CalculateFeatureSimilarity(currentFeatures.quantizedFeatures, helper.QuantizedFeatures);
 
-                // 3. Correlation-based similarity
                 double correlationScore = CalculateCorrelationSimilarity(currentTemplate, helper);
 
-                // 4. Weighted overall score
                 double overallScore = (featureSimilarity * 0.4 + quantizedSimilarity * 0.4 + correlationScore * 0.2);
 
                 return (overallScore, featureSimilarity, quantizedSimilarity, correlationScore);
@@ -562,11 +485,10 @@ namespace FuzzyExtractorLib
                 int diff = Math.Abs(features1[i] - features2[i]);
                 if (diff == 0)
                     matchingBytes++;
-                if (diff <= 8) // Tolerance for small variations
+                if (diff <= 8)
                     tolerantMatches++;
             }
 
-            // Weighted score: exact matches get more weight
             double exactScore = (double)matchingBytes / features1.Length;
             double tolerantScore = (double)tolerantMatches / features1.Length;
 
@@ -575,36 +497,16 @@ namespace FuzzyExtractorLib
 
         private double CalculateCorrelationSimilarity(byte[] currentTemplate, HelperData helper)
         {
-            // Generate correlation signature for current template
             byte[] currentSignature = GenerateCorrelationSignature(currentTemplate);
 
             if (helper.CorrelationSignature == null || helper.CorrelationSignature.Length == 0)
-                return 0.5; // Neutral score if no stored signature
+                return 0.5;
 
             return CalculateFeatureSimilarity(currentSignature, helper.CorrelationSignature);
         }
 
-        /// <summary>
-        /// Determines adaptive threshold based on quality levels with SECURITY considerations
-        /// </summary>
-        private double DetermineAdaptiveThreshold(QualityLevel enrollmentQuality, QualityLevel verificationQuality)
-        {
-            // More lenient thresholds since FuzzyExtractor is now primary method
-            if (enrollmentQuality == QualityLevel.High && verificationQuality == QualityLevel.High)
-                return 0.65; // Further reduced for primary method role
-            else if (enrollmentQuality == QualityLevel.High || verificationQuality == QualityLevel.High)
-                return 0.60; // Further reduced for primary method role
-            else if (enrollmentQuality == QualityLevel.Medium && verificationQuality == QualityLevel.Medium)
-                return 0.55; // Further reduced for primary method role
-            else
-                return 0.45; // Further reduced for primary method role
-        }
-
-        #region Enhanced Helper Methods
-
         private double CalculateFeatureConsistencyScore(byte[] smoothed, byte[] quantized)
         {
-            // Calculate how much the quantization changed the smoothed features
             double totalDifference = 0;
             for (int i = 0; i < smoothed.Length; i++)
             {
@@ -612,7 +514,6 @@ namespace FuzzyExtractorLib
             }
 
             double avgDifference = totalDifference / smoothed.Length;
-            // Lower difference = higher consistency
             return Math.Max(0.0, 1.0 - (avgDifference / 128.0));
         }
 
@@ -621,18 +522,15 @@ namespace FuzzyExtractorLib
         {
             using (var ms = new MemoryStream())
             {
-                // Store template length
                 ms.Write(BitConverter.GetBytes(template.Length), 0, 4);
 
-                // Store feature hash
                 using (var sha256 = SHA256.Create())
                 {
                     byte[] featureHash = sha256.ComputeHash(featureResult.features);
-                    ms.Write(featureHash, 0, 16); // First 16 bytes
+                    ms.Write(featureHash, 0, 16);
 
-                    // Store quantized feature hash
                     byte[] quantizedHash = sha256.ComputeHash(featureResult.quantizedFeatures);
-                    ms.Write(quantizedHash, 0, 16); // First 16 bytes
+                    ms.Write(quantizedHash, 0, 16);
                 }
 
                 byte[] correlationSignature = GenerateCorrelationSignature(template);
@@ -642,7 +540,6 @@ namespace FuzzyExtractorLib
 
         private byte[] GenerateCorrelationSignature(byte[] template)
         {
-            // Generate a signature based on autocorrelation properties
             byte[] signature = new byte[16];
 
             for (int lag = 1; lag <= 16; lag++)
@@ -666,7 +563,6 @@ namespace FuzzyExtractorLib
         {
             using (var sha256 = SHA256.Create())
             {
-                // Create salt from template characteristics and fixed values
                 var combined = new List<byte>();
                 combined.AddRange(BitConverter.GetBytes(template.Length));
                 combined.AddRange(BitConverter.GetBytes(template.Sum(b => b)));
@@ -681,15 +577,8 @@ namespace FuzzyExtractorLib
             }
         }
 
-        #endregion
-
-        #region Enhanced Reed-Solomon Implementation
-
         private static readonly GenericGF RS_FIELD = GenericGF.DATA_MATRIX_FIELD_256;
 
-        /// <summary>
-        /// Enhanced Reed-Solomon encoding with increased parity
-        /// </summary>
         private byte[] EncodeWithEnhancedReedSolomon(byte[] data)
         {
             if (data.Length != KEY_SIZE)
@@ -701,25 +590,20 @@ namespace FuzzyExtractorLib
             {
                 var encoder = new ReedSolomonEncoder(RS_FIELD);
 
-                // Create array: 32 data + 64 parity = 96 total
                 int[] toEncode = new int[RS_DATA_SIZE + RS_PARITY_SIZE];
 
-                // Copy key data
                 for (int i = 0; i < data.Length; i++)
                 {
                     toEncode[i] = data[i] & 0xFF;
                 }
 
-                // Initialize parity area
                 for (int i = RS_DATA_SIZE; i < RS_DATA_SIZE + RS_PARITY_SIZE; i++)
                 {
                     toEncode[i] = 0;
                 }
 
-                // Encode - this adds parity bytes
                 encoder.encode(toEncode, RS_PARITY_SIZE);
 
-                // Convert to byte array
                 byte[] encoded = new byte[RS_TOTAL_SIZE];
                 for (int i = 0; i < toEncode.Length; i++)
                 {
@@ -734,9 +618,6 @@ namespace FuzzyExtractorLib
             }
         }
 
-        /// <summary>
-        /// Enhanced Reed-Solomon decoding with increased error correction capability
-        /// </summary>
         private (byte[] decoded, int errorsCorrected, bool success) DecodeWithEnhancedReedSolomon(byte[] encoded)
         {
             if (encoded.Length != RS_TOTAL_SIZE)
@@ -746,22 +627,18 @@ namespace FuzzyExtractorLib
 
             try
             {
-                // Convert to int array for ZXing
                 int[] received = new int[RS_DATA_SIZE + RS_PARITY_SIZE];
                 for (int i = 0; i < received.Length; i++)
                 {
                     received[i] = encoded[i] & 0xFF;
                 }
 
-                // Store original for error counting
                 int[] original = new int[received.Length];
                 Array.Copy(received, original, received.Length);
 
-                // Create decoder and attempt correction
                 var decoder = new ReedSolomonDecoder(RS_FIELD);
                 decoder.decode(received, RS_PARITY_SIZE);
 
-                // Count errors corrected
                 int errorsCorrected = 0;
                 for (int i = 0; i < received.Length; i++)
                 {
@@ -771,7 +648,6 @@ namespace FuzzyExtractorLib
                     }
                 }
 
-                // Extract the original key (first RS_DATA_SIZE bytes)
                 byte[] decoded = new byte[RS_DATA_SIZE];
                 for (int i = 0; i < RS_DATA_SIZE; i++)
                 {
@@ -786,13 +662,6 @@ namespace FuzzyExtractorLib
             }
         }
 
-        #endregion
-
-        #region Standard Helper Methods
-
-        /// <summary>
-        /// Pads features to required length with enhanced deterministic pattern
-        /// </summary>
         private byte[] PadFeatures(byte[] features, int targetLength)
         {
             if (features.Length >= targetLength)
@@ -803,24 +672,18 @@ namespace FuzzyExtractorLib
             byte[] padded = new byte[targetLength];
             Array.Copy(features, padded, features.Length);
 
-            // Enhanced deterministic padding using template characteristics
             for (int i = features.Length; i < targetLength; i++)
             {
-                // More sophisticated padding pattern
                 int sourceIndex = i % features.Length;
                 byte sourceValue = features[sourceIndex];
                 byte positionBias = (byte)(i - features.Length);
 
-                // Combine source value with position-dependent transformation
                 padded[i] = (byte)((sourceValue ^ positionBias ^ (byte)(sourceIndex * 3)) & 0xFF);
             }
 
             return padded;
         }
 
-        /// <summary>
-        /// Generates a cryptographically secure random key
-        /// </summary>
         private byte[] GenerateRandomKey()
         {
             byte[] key = new byte[KEY_SIZE];
@@ -831,9 +694,6 @@ namespace FuzzyExtractorLib
             return key;
         }
 
-        /// <summary>
-        /// Creates verification hash from key and salt
-        /// </summary>
         private byte[] CreateVerification(byte[] key, byte[] salt)
         {
             using (var sha256 = SHA256.Create())
@@ -845,18 +705,12 @@ namespace FuzzyExtractorLib
             }
         }
 
-        /// <summary>
-        /// Verifies if decoded key matches original
-        /// </summary>
         private bool VerifyKey(byte[] key, byte[] storedVerification, byte[] salt)
         {
             byte[] currentVerification = CreateVerification(key, salt);
             return currentVerification.SequenceEqual(storedVerification);
         }
 
-        /// <summary>
-        /// XORs two byte arrays
-        /// </summary>
         private byte[] XORBytes(byte[] a, byte[] b)
         {
             if (a.Length != b.Length)
@@ -872,13 +726,6 @@ namespace FuzzyExtractorLib
             return result;
         }
 
-        #endregion
-
-        #region Enhanced Diagnostic Methods
-
-        /// <summary>
-        /// Comprehensive analysis of template differences with enhanced metrics
-        /// </summary>
         public void AnalyzeEnhancedTemplateDifferences(byte[] template1, byte[] template2)
         {
             if (template1 == null || template2 == null)
@@ -886,33 +733,23 @@ namespace FuzzyExtractorLib
                 return;
             }
 
-            // Quality assessment for both templates
             var quality1 = AssessTemplateQuality(template1);
             var quality2 = AssessTemplateQuality(template2);
 
-            // Enhanced feature extraction comparison
             var features1 = ExtractUltraStableFeatures(template1, quality1);
             var features2 = ExtractUltraStableFeatures(template2, quality2);
 
-            // Multi-metric similarity analysis
             double rawSimilarity = CalculateFeatureSimilarity(features1.features, features2.features);
             double quantizedSimilarity = CalculateFeatureSimilarity(features1.quantizedFeatures, features2.quantizedFeatures);
 
-            // Correlation analysis
             byte[] corr1 = GenerateCorrelationSignature(template1);
             byte[] corr2 = GenerateCorrelationSignature(template2);
             double correlationSimilarity = CalculateFeatureSimilarity(corr1, corr2);
 
-            // Adaptive threshold analysis
             double threshold = DetermineAdaptiveThreshold(quality1, quality2);
             double overallScore = (rawSimilarity * 0.4 + quantizedSimilarity * 0.4 + correlationSimilarity * 0.2);
-
-            // Analysis completed - results available through diagnostic properties
         }
 
-        /// <summary>
-        /// Enhanced key consistency testing with detailed analysis
-        /// </summary>
         public void TestEnhancedKeyConsistency(byte[] enrollTemplate, List<byte[]> verifyTemplates)
         {
             try
@@ -937,18 +774,12 @@ namespace FuzzyExtractorLib
                     matchScores.Add(LastTemplateMatchScore);
                     errorCounts.Add(LastErrorsCorrected);
                 }
-
-                // Test results available through diagnostic properties
             }
             catch (Exception)
             {
-                // Test failed
             }
         }
 
-        /// <summary>
-        /// Generates a comprehensive quality report for a template
-        /// </summary>
         public void GenerateTemplateQualityReport(byte[] template)
         {
             if (template == null || template.Length == 0)
@@ -956,23 +787,14 @@ namespace FuzzyExtractorLib
                 return;
             }
 
-            // Quality assessment
             var qualityLevel = AssessTemplateQuality(template);
 
-            // Detailed metrics
             double entropy = CalculateEntropy(template);
             double variance = CalculateVariance(template);
             double edgeContent = CalculateEdgeContent(template);
 
-            // Feature extraction analysis
             var features = ExtractUltraStableFeatures(template, qualityLevel);
-
-            // Quality report completed - results available through diagnostic properties
         }
-
-        #endregion
-
-        #region Public Utility Methods
 
         public static bool KeysMatch(byte[] key1, byte[] key2)
         {
@@ -987,9 +809,6 @@ namespace FuzzyExtractorLib
             return key == null ? string.Empty : BitConverter.ToString(key).Replace("-", "");
         }
 
-        /// <summary>
-        /// Helper method to determine if fuzzy extractor is likely to work for given templates
-        /// </summary>
         public bool WillFuzzyExtractorWork(byte[] enrollmentTemplate, byte[] verificationTemplate)
         {
             try
@@ -1000,11 +819,9 @@ namespace FuzzyExtractorLib
                 if (enrollQuality == QualityLevel.Unknown || verifyQuality == QualityLevel.Unknown)
                     return false;
 
-                // Extract features using enrollment quality level
                 var enrollFeatures = ExtractUltraStableFeatures(enrollmentTemplate, enrollQuality);
                 var verifyFeatures = ExtractUltraStableFeatures(verificationTemplate, enrollQuality);
 
-                // Calculate similarity
                 double similarity = CalculateFeatureSimilarity(enrollFeatures.features, verifyFeatures.features);
                 double threshold = DetermineAdaptiveThreshold(enrollQuality, verifyQuality);
 
@@ -1015,7 +832,5 @@ namespace FuzzyExtractorLib
                 return false;
             }
         }
-
-        #endregion
     }
 }

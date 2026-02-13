@@ -1,6 +1,4 @@
-﻿// FingerprintLib - Enhanced FingerData.cs with FuzzyExtractor Integration (Modernized for Bcrypt)
-
-using libzkfpcsharp;
+﻿using libzkfpcsharp;
 using FuzzyExtractorLib;
 using System;
 using System.Collections.Generic;
@@ -14,9 +12,6 @@ using System.Threading.Tasks;
 
 namespace FingerprintLib
 {
-    /// <summary>
-    /// Enhanced fingerprint scanner with FuzzyExtractor integration for both methods
-    /// </summary>
     public class FingerprintScanner : IDisposable
     {
         private IntPtr deviceHandle = IntPtr.Zero;
@@ -36,11 +31,9 @@ namespace FingerprintLib
         private const int MATCH_THRESHOLD_MEDIUM = 600;
         private const int MATCH_THRESHOLD_LOW = 400;
 
-        // FuzzyExtractor integration for template-assisted method
         private FuzzyExtractor _fuzzyExtractor;
         private FuzzyExtractor.HelperData _enrollmentHelperData;
 
-        // Hybrid method properties
         public enum KeyGenerationMethod
         {
             FuzzyExtractor,
@@ -52,24 +45,17 @@ namespace FingerprintLib
         public bool HasStoredTemplate { get; private set; } = false;
         public double LastConfidenceScore { get; private set; } = 0.0;
 
-        // Diagnostic properties
         public List<byte[]> LastCapturedTemplates { get; private set; } = new List<byte[]>();
         public List<int> LastQualityScores { get; private set; } = new List<int>();
         public byte[] LastSelectedTemplate { get; private set; }
         public int LastSelectedQualityScore { get; private set; }
 
-        /// <summary>
-        /// Sets the FuzzyExtractor instance and helper data for template-assisted method
-        /// </summary>
         public void SetFuzzyExtractor(FuzzyExtractor fuzzyExtractor, FuzzyExtractor.HelperData helperData)
         {
             _fuzzyExtractor = fuzzyExtractor;
             _enrollmentHelperData = helperData;
         }
 
-        /// <summary>
-        /// Enhanced initialization with template storage setup
-        /// </summary>
         public bool Initialize()
         {
             try
@@ -93,7 +79,6 @@ namespace FingerprintLib
                     return false;
                 }
 
-                // Get device parameters
                 byte[] paramValue = new byte[4];
                 int size = 4;
 
@@ -113,14 +98,12 @@ namespace FingerprintLib
 
                 imageBuffer = new byte[width * height];
 
-                // Initialize database for template storage
                 dbHandle = zkfp2.DBInit();
                 if (dbHandle == IntPtr.Zero)
                 {
                     return false;
                 }
 
-                // Clear any existing templates in memory
                 zkfp2.DBClear(dbHandle);
 
                 isInitialized = true;
@@ -132,9 +115,6 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// Captures and stores enrollment template using template-assisted method
-        /// </summary>
         public async Task<(byte[] template, bool success, string errorMessage)> CaptureAndStoreEnrollmentTemplateAsync(
             Action<int, string> progress = null,
             CancellationToken cancellationToken = default)
@@ -146,12 +126,10 @@ namespace FingerprintLib
 
             try
             {
-                // Clear previous data
                 LastCapturedTemplates.Clear();
                 LastQualityScores.Clear();
                 HasStoredTemplate = false;
 
-                // Capture 3 templates and merge them
                 List<byte[]> templates = await CaptureThreeTemplatesAsync(progress, cancellationToken);
 
                 if (templates == null || templates.Count != 3)
@@ -161,7 +139,6 @@ namespace FingerprintLib
 
                 LastCapturedTemplates = new List<byte[]>(templates);
 
-                // Merge templates using DBMerge
                 var (mergedTemplate, qualityScore, success, errorMessage) = MergeTemplatesWithValidation(templates);
 
                 if (!success)
@@ -172,7 +149,6 @@ namespace FingerprintLib
                 LastSelectedTemplate = mergedTemplate;
                 LastSelectedQualityScore = qualityScore;
 
-                // Store the merged template in SDK memory using DBAdd
                 int storeResult = zkfp2.DBAdd(dbHandle, TEMPLATE_STORAGE_FID, mergedTemplate);
 
                 if (storeResult != zkfp.ZKFP_ERR_OK)
@@ -190,9 +166,6 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// Hybrid verification method - tries fuzzy extractor first, falls back to template-assisted
-        /// </summary>
         public async Task<(byte[] template, KeyGenerationMethod method, double confidence, bool success, string errorMessage)>
             CaptureVerificationTemplateAsync(
                 Action<int, string> progress = null,
@@ -205,7 +178,6 @@ namespace FingerprintLib
 
             try
             {
-                // Capture verification template
                 byte[] verificationTemplate = await CaptureEnhancedTemplateAsync(progress, cancellationToken);
 
                 if (verificationTemplate == null)
@@ -213,10 +185,8 @@ namespace FingerprintLib
                     return (null, KeyGenerationMethod.FuzzyExtractor, 0.0, false, "Failed to capture verification template");
                 }
 
-                // Calculate template quality score
                 int qualityScore = AssessTemplateQuality(verificationTemplate);
 
-                // Decision logic for method selection
                 var (selectedMethod, confidence, reason) = DetermineKeyGenerationMethod(verificationTemplate, qualityScore);
 
                 LastUsedMethod = selectedMethod;
@@ -231,9 +201,6 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// SECURITY CRITICAL: Fixed security validation for 0-1000 score range
-        /// </summary>
         public bool ValidateFingerSecurity(byte[] verificationTemplate)
         {
             try
@@ -243,16 +210,13 @@ namespace FingerprintLib
                     return false;
                 }
 
-                // Use proper DBMatch parameters (1:1 comparison)
                 int matchScore = zkfp2.DBMatch(dbHandle, LastSelectedTemplate, verificationTemplate);
 
-                // Check for impossible/suspicious scores
                 if (matchScore > 1000 || matchScore < 0)
                 {
                     return false;
                 }
 
-                // SECURITY THRESHOLDS for ZK SDK (0-1000 range)
                 const int MIN_SAME_FINGER_SCORE = 400;
 
                 if (matchScore < MIN_SAME_FINGER_SCORE)
@@ -268,36 +232,28 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// SECURITY CRITICAL: Fixed method selection with proper 0-1000 thresholds
-        /// </summary>
         private (KeyGenerationMethod method, double confidence, string reason) DetermineKeyGenerationMethod(
             byte[] verificationTemplate, int qualityScore)
         {
             try
             {
-                // Level 1: High quality templates - try fuzzy extractor
                 if (qualityScore >= 90)
                 {
                     return (KeyGenerationMethod.FuzzyExtractor, 0.95, "High quality template suitable for fuzzy extractor");
                 }
 
-                // Level 2: Check if we have stored template for template-assisted method
                 if (!HasStoredTemplate)
                 {
                     return (KeyGenerationMethod.FuzzyExtractor, 0.70, "No stored template available, using fuzzy extractor");
                 }
 
-                // Level 3: Template matching analysis with CORRECTED validation
                 int matchScore = zkfp2.DBMatch(dbHandle, LastSelectedTemplate, verificationTemplate);
 
-                // Check for impossible scores
                 if (matchScore > 1000 || matchScore < 0)
                 {
                     return (KeyGenerationMethod.FuzzyExtractor, 0.10, $"Invalid match score ({matchScore}) - security fallback");
                 }
 
-                // CORRECTED SECURITY THRESHOLDS for ZK SDK (0-1000 range)
                 const int SECURITY_THRESHOLD_HIGH = 700;
                 const int SECURITY_THRESHOLD_MEDIUM = 550;
                 const int SECURITY_THRESHOLD_LOW = 400;
@@ -325,29 +281,21 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// SECURITY CRITICAL: Additional validation to prevent the 1000/1000 score bug
-        /// </summary>
         public bool PerformSecurityAudit(byte[] verificationTemplate)
         {
             try
             {
-                // Test 1: Direct template comparison
                 int directScore = zkfp2.DBMatch(dbHandle, LastSelectedTemplate, verificationTemplate);
 
-                // Test 2: Check for identical templates (should not happen with different fingers)
                 bool templatesIdentical = LastSelectedTemplate.SequenceEqual(verificationTemplate);
 
-                // Test 3: Statistical comparison
                 double templateSimilarity = CalculateTemplateSimilarity(LastSelectedTemplate, verificationTemplate);
 
-                // SECURITY FAILURE CONDITIONS
                 if (directScore > 1000 || directScore < 0)
                 {
                     return false;
                 }
 
-                // More lenient check for template-assisted method
                 if (directScore >= 400)
                 {
                     return true;
@@ -363,9 +311,6 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// Helper method to calculate statistical template similarity
-        /// </summary>
         private double CalculateTemplateSimilarity(byte[] template1, byte[] template2)
         {
             if (template1.Length != template2.Length)
@@ -381,9 +326,6 @@ namespace FingerprintLib
             return 1.0 - ((double)differences / template1.Length);
         }
 
-        /// <summary>
-        /// Debugging method for template-assisted method
-        /// </summary>
         public void DebugTemplateAssistedMethod(byte[] verificationTemplate)
         {
             if (LastSelectedTemplate != null && verificationTemplate != null)
@@ -395,21 +337,15 @@ namespace FingerprintLib
                 {
                     try
                     {
-                        // Use stored enrollment template with FuzzyExtractor
                         byte[] key = _fuzzyExtractor.ReproduceKey(LastSelectedTemplate, _enrollmentHelperData);
-                        // Key generation completed
                     }
                     catch (Exception)
                     {
-                        // Failed to generate key
                     }
                 }
             }
         }
 
-        /// <summary>
-        /// Template-assisted key generation using FuzzyExtractor with stored enrollment template
-        /// </summary>
         public byte[] GenerateKeyFromStoredTemplate(byte[] verificationTemplate)
         {
             if (!HasStoredTemplate)
@@ -419,16 +355,13 @@ namespace FingerprintLib
 
             try
             {
-                // SECURITY STEP 1: Perform comprehensive security audit
                 if (!PerformSecurityAudit(verificationTemplate))
                 {
                     return null;
                 }
 
-                // SECURITY STEP 2: Verify the template matches the stored one with proper thresholds
                 int matchScore = zkfp2.DBMatch(dbHandle, LastSelectedTemplate, verificationTemplate);
 
-                // Use corrected threshold (0-1000 range)
                 const int MIN_SECURITY_THRESHOLD = 400;
 
                 if (matchScore < MIN_SECURITY_THRESHOLD)
@@ -436,7 +369,6 @@ namespace FingerprintLib
                     return null;
                 }
 
-                // Use FuzzyExtractor with stored enrollment template instead of deterministic generation
                 if (_fuzzyExtractor == null || _enrollmentHelperData == null)
                 {
                     return null;
@@ -457,9 +389,6 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// Validates that template-assisted method can reproduce the same key
-        /// </summary>
         public bool ValidateTemplateAssistedConsistency(byte[] template1, byte[] template2)
         {
             try
@@ -488,9 +417,6 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// Clears stored templates from memory
-        /// </summary>
         public bool ClearStoredTemplates()
         {
             try
@@ -509,19 +435,12 @@ namespace FingerprintLib
             }
         }
 
-        /// <summary>
-        /// Gets comprehensive system status for debugging
-        /// </summary>
         public void PrintHybridSystemStatus()
         {
-            // Status information available through properties
         }
 
         #region Core Template Processing Methods
 
-        /// <summary>
-        /// Captures 3 templates and returns the best quality merged template
-        /// </summary>
         public async Task<byte[]> CaptureEnhancedTemplateAsync(
             Action<int, string> progress = null,
             CancellationToken cancellationToken = default)
@@ -819,21 +738,14 @@ namespace FingerprintLib
 
         #endregion
 
-        /// <summary>
-        /// Properties for accessing scanner dimensions
-        /// </summary>
         public int ImageWidth => width;
         public int ImageHeight => height;
         public bool IsInitialized => isInitialized;
 
-        /// <summary>
-        /// Enhanced disposal with template cleanup
-        /// </summary>
         public void Dispose()
         {
             try
             {
-                // Clear stored templates
                 if (HasStoredTemplate)
                 {
                     ClearStoredTemplates();
@@ -855,19 +767,14 @@ namespace FingerprintLib
                 isInitialized = false;
                 HasStoredTemplate = false;
 
-                // Clear FuzzyExtractor references
                 _fuzzyExtractor = null;
                 _enrollmentHelperData = null;
             }
             catch (Exception)
             {
-                // Silently handle disposal errors
             }
         }
 
-        /// <summary>
-        /// Restores a previously stored template to SDK memory
-        /// </summary>
         public bool RestoreStoredTemplate(byte[] template)
         {
             try
@@ -877,7 +784,6 @@ namespace FingerprintLib
                     return false;
                 }
 
-                // Add the template back to SDK memory using the same fixed ID
                 int result = zkfp2.DBAdd(dbHandle, TEMPLATE_STORAGE_FID, template);
 
                 if (result == zkfp.ZKFP_ERR_OK)
@@ -898,18 +804,11 @@ namespace FingerprintLib
         }
     }
 
-    /// <summary>
-    /// Helper class for hybrid method integration
-    /// </summary>
     public static class HybridMethodHelper
     {
-        /// <summary>
-        /// Creates a comprehensive diagnostic report for the hybrid system
-        /// </summary>
         public static void GenerateHybridDiagnosticReport(FingerprintScanner scanner,
             List<byte[]> testTemplates = null)
         {
-            // Diagnostic information available through scanner properties
         }
 
         private static (double entropy, double nonZeroRatio, double variance) CalculateTemplateStatistics(byte[] template)
@@ -934,20 +833,15 @@ namespace FingerprintLib
                 }
             }
 
-            // Calculate non-zero ratio
             int nonZeroCount = template.Count(b => b != 0);
             double nonZeroRatio = (double)nonZeroCount / template.Length;
 
-            // Calculate variance
             double mean = template.Average(b => (double)b);
             double variance = template.Average(b => Math.Pow(b - mean, 2));
 
             return (entropy, nonZeroRatio, variance);
         }
 
-        /// <summary>
-        /// Runs a comprehensive test suite for both hybrid methods
-        /// </summary>
         public static async Task<HybridTestResults> RunHybridMethodTestSuite(
             FingerprintScanner scanner,
             int numberOfTests = 5,
@@ -1027,7 +921,6 @@ namespace FingerprintLib
                     results.KeyConsistency = allKeysIdentical;
                 }
 
-                // Calculate success rates
                 results.TemplateAssistedSuccessRate = results.VerificationAttempts > 0 ?
                     (double)results.TemplateAssistedSuccesses / results.VerificationAttempts : 0.0;
 
@@ -1042,9 +935,6 @@ namespace FingerprintLib
         }
     }
 
-    /// <summary>
-    /// Results container for hybrid method testing
-    /// </summary>
     public class HybridTestResults
     {
         public bool TestCompleted { get; set; } = false;
