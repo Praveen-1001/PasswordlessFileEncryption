@@ -145,7 +145,7 @@ cd EncDecApp/bin/Release/net8.0-windows
 
 1. Select a file to encrypt.
 2. Authenticate using your fingerprint (click "Verify Fingerprint").
-3. Click the "🔒 Encrypt" button.
+3. Click the "Encrypt" button.
 4. Choose save location for the encrypted file (default: `.enc` extension).
 5. The application generates a secure key and encrypts the file.
 
@@ -153,7 +153,7 @@ cd EncDecApp/bin/Release/net8.0-windows
 
 1. Select an encrypted file (`.enc` file).
 2. Authenticate using your fingerprint.
-3. Click the "🔓 Decrypt" button.
+3. Click the "Decrypt" button.
 4. Choose save location for the decrypted file.
 5. The application verifies the fingerprint and decrypts the file.
 
@@ -190,11 +190,11 @@ The application performs real-time security analysis:
 
 ### What Makes It Secure?
 
-- ✅ **No password storage**: Keys are generated on-demand from biometrics
-- ✅ **No template database**: No vulnerable biometric data stored
-- ✅ **256-bit key space**: Brute force attacks are computationally infeasible
-- ✅ **Spoofing detection**: Multi-layer verification prevents fake fingerprints
-- ✅ **Unique IVs**: Each encrypted file uses a unique initialization vector
+-  **No password storage**: Keys are generated on-demand from biometrics
+-  **No template database**: No vulnerable biometric data stored
+-  **256-bit key space**: Brute force attacks are computationally infeasible
+-  **Spoofing detection**: Multi-layer verification prevents fake fingerprints
+-  **Unique IVs**: Each encrypted file uses a unique initialization vector
 
 ---
 
